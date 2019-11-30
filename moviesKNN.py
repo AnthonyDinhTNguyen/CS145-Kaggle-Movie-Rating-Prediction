@@ -1,5 +1,6 @@
 import csv
 import scipy.spatial
+import time
 
 m_genres = []
 m_movieDict = {}
@@ -7,26 +8,24 @@ m_userDict = {}
 m_max_tag_id = 0
 m_max_movie_id = 0
 
-m_movies_file_name = 'movies-truncated.csv'
-m_genome_scores_file_name = 'genome-scores-truncated.csv'
+m_movies_file_name = 'movies.csv'
+m_genome_scores_file_name = 'genome-scores.csv'
 m_genome_tags_file_name = 'genome-tags.csv'
 m_val_ratings_binary_file_name = 'val_ratings_binary.csv'
 
-m_val_ratings_binary_truncated = []
-
-def getTruncatedValRatingsBinary():
-    with open(m_val_ratings_binary_file_name, encoding='utf-8') as csv_file:
-        csv_reader = csv.reader(csv_file, delimiter = ',')
-        next(csv_reader, None) # skip the headers
-        min_movie_id_rated = m_max_movie_id
-        for row in csv_reader:
-            movie_id = int(float(row[1]))
-            if (movie_id < min_movie_id_rated):
-              min_movie_id_rated = movie_id
-            if (movie_id <= m_max_movie_id):
-              m_val_ratings_binary_truncated.append(row)
-        print(min_movie_id_rated)
-        print(m_val_ratings_binary_truncated)
+# def getTruncatedValRatingsBinary():
+#     with open(m_val_ratings_binary_file_name, encoding='utf-8') as csv_file:
+#         csv_reader = csv.reader(csv_file, delimiter = ',')
+#         next(csv_reader, None) # skip the headers
+#         min_movie_id_rated = m_max_movie_id
+#         for row in csv_reader:
+#             movie_id = int(float(row[1]))
+#             if (movie_id < min_movie_id_rated):
+#               min_movie_id_rated = movie_id
+#             if (movie_id <= m_max_movie_id):
+#               m_val_ratings_binary_truncated.append(row)
+#         print(min_movie_id_rated)
+#         print(m_val_ratings_binary_truncated)
 
 def getGenres():
     with open(m_movies_file_name, encoding='utf-8') as csv_file:
@@ -112,19 +111,20 @@ def getDistanceMovies(movieA, movieB):
 # for each user, the first vector represents movies they
 # liked, second vector represents movies they disliked.
 def populateUsersMovieVectors():
-    for row in m_val_ratings_binary_truncated:
+    with open(m_val_ratings_binary_file_name, encoding = 'utf-8') as genome_scores:
+        csv_reader = csv.reader(genome_scores,delimiter = ',')
+        next(csv_reader, None)  # skip the headers
+    for row in csv_reader:
         user_id = int(row[0])
         if user_id not in m_userDict:
             global m_max_movie_id
-            m_userDict[user_id] = [0]*2
-            m_userDict[user_id][0] = [0]*m_max_movie_id
-            m_userDict[user_id][1] = [0]*m_max_movie_id
+            m_userDict[user_id] = [0]*m_max_movie_id
         movie_id = int(float(row[1]))
         rating = int(row[2])
         if (rating == 0):
-            m_userDict[user_id][1][movie_id-1] = 1
+            m_userDict[user_id][movie_id-1] = -1
         else:
-            m_userDict[user_id][0][movie_id-1] = 1
+            m_userDict[user_id][movie_id-1] = 1
         
     print(m_userDict)
 
@@ -136,17 +136,11 @@ def populateUsersMovieVectors():
 # of their like or dislike vectors is zero, since it means we
 # don't have rating data for them?
 def getDistanceUsers(userA, userB):
-    aLikedMovieRatingsVector = m_userDict[userA][0]
-    bLikedMovieRatingsVector = m_userDict[userB][0]
-    aDislikedMovieRatingsVector = m_userDict[userA][1]
-    bDislikedMovieRatingsVector = m_userDict[userB][1]
+    aMovieRatingsVector = m_userDict[userA]
+    bMovieRatingsVector = m_userDict[userB]
 
-    print("(Likes) comparing " + str(aLikedMovieRatingsVector) + " with " + str(bLikedMovieRatingsVector))
-    distance = scipy.spatial.distance.cosine(aLikedMovieRatingsVector, bLikedMovieRatingsVector)
+    distance = scipy.spatial.distance.cosine(aMovieRatingsVector, bMovieRatingsVector)
 
-    print("(Dislikes) comparing " + str(aDislikedMovieRatingsVector) + " with " + str(bDislikedMovieRatingsVector))
-    distance += scipy.spatial.distance.cosine(aDislikedMovieRatingsVector, bDislikedMovieRatingsVector)
-    print(distance)
     return distance
 
 def getKNNMovies(currentMovie,k):
@@ -161,10 +155,37 @@ def getKNNMovies(currentMovie,k):
         similarIDs.sort(key = lambda x: x[1])
         return similarIDs[:k]
 
+def getKNNUsers(currentUser, k):
+    with open(m_val_ratings_binary_file_name, encoding = 'utf-8') as csv_file:
+          csv_reader = csv.reader(csv_file, delimiter = ',')
+          next(csv_reader, None) # skip the headers
+          similarIDs = []
+          for row in csv_reader:
+              userID = int(row[0])
+              if (userID != currentUser):
+                 dist = getDistanceUsers(currentUser, userID)
+                 similarIDs.append(userID, dist)
+          similarIDs.sort(key = lambda x: x[1])
+          return similarIDs[:k]
+
+def getCurrentTimeMs():
+    return time.time_ns() // 1000000
+
+print("Getting max movie id...")
 getMaxMovieId()
-getTruncatedValRatingsBinary()
+print("Populating user movie vectors...")
+populateUserMovieVectorsStartTime = getCurrentTimeMs()
 populateUsersMovieVectors()
+populateUserMovieVectorsFinishTime = getCurrentTimeMs()
+print("Finished populating user movie vectors")
+print("Getting single user distance...")
+getSingleUserDistanceStartTime = getCurrentTimeMs()
 getDistanceUsers(54474, 103635)
+getSingleUserDistanceFinishTime = getCurrentTimeMs()
+print("Finished getting single user distance")
+print("Final statistics: " + "\n" +
+      "Populate user movie vectors time: " + str(populateUserMovieVectorsFinishTime - populateUserMovieVectorsStartTime) + "\n" +
+      "Get single user distance time: " + str(getSingleUserDistanceFinishTime - getSingleUserDistanceStartTime))
 # buildMovieInfo()
 # print(getKNNMovies('2',1))
 # populateUsersMovieVectors()
