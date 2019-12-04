@@ -26,11 +26,26 @@ print_t("Combining movies and val_ratings_binary tables...")
 df_combined = pd.merge(df_m, df_vrb, on='movieId')
 df_combined.set_index('userId', inplace=True)
 df_combined.sort_index(inplace=True)
-df_combined.groupby(df_combined['userId','genres']).aggregate()
+df_combined[['rating']] = df_combined[['rating']].apply(pd.to_numeric)
 
+df_combined.iloc[50553, df_combined.columns.get_loc('rating')] = 1
+df_combined.iloc[50552, df_combined.columns.get_loc('rating')] = 1
+
+print("Before group by:")
 print(df_combined)
 
-#print_t("Pivoting combined table...")
-#df_combined.pivot(index='userId', columns='genres', values='rating')
+aggregation_functions = {'rating': 'sum', 'movieId': 'first', 'title': 'first'}
+df_combined = df_combined.groupby(['userId','genres']).aggregate(aggregation_functions).reset_index()
 
-#print(df_combined)
+print("After group by:")
+print(df_combined)
+
+ratings_matrix = df_combined.pivot(index='userId', columns='genres', values='rating')
+ratings_matrix.replace(np.nan, 0, inplace=True)
+
+print("After pivot:")
+print(ratings_matrix)
+
+print(ratings_matrix.iloc[0].values.tolist())
+
+print(getDistanceUsers(0, 1, ratings_matrix))
