@@ -1,9 +1,10 @@
+
 import csv
 import scipy.spatial
 genres =['Action', 'Adventure', 'Animation', 'Children', 'Comedy', 'Crime', 'Documentary', 'Drama', 'Fantasy', 'Film-Noir', 'Horror', 'IMAX', 'Musical', 'Mystery', 'Romance', 'Sci-Fi', 'Thriller', 'War', 'Western']
 movieDict = {}
 def getGenres():
-    with open('movies.csv', encoding='utf-8') as csv_file:
+    with open('../movies.csv', encoding='utf-8') as csv_file:
         csv_reader = csv.reader(csv_file,delimiter =',')
         for row in csv_reader:
             for genre in row[2].split('|'):
@@ -16,7 +17,7 @@ def getGenres():
         print(genres)
 
 def buildMovieInfo():
-    with open('movies.csv', encoding = 'utf-8') as csv_file:
+    with open('../movies.csv', encoding = 'utf-8') as csv_file:
         csv_reader = csv.reader(csv_file,delimiter = ',')
         for row in csv_reader:
             movieDict[row[0]]=[0]*2
@@ -25,7 +26,7 @@ def buildMovieInfo():
                 if("genres" not in genre):
                     tempList[genres.index(genre)] = 1
             movieDict[row[0]][0] = tempList
-    with open('genome-scores.csv', encoding = 'utf-8') as genome_scores:
+    with open('../genome-scores.csv', encoding = 'utf-8') as genome_scores:
         genome_scores_reader = csv.reader(genome_scores,delimiter = ',')
         next(genome_scores_reader)
         currentTag = 1
@@ -52,7 +53,7 @@ def getDistance(movieA, movieB):
 
 def getKNNMovies(currentMovie,k):
     buildMovieInfo()
-    with open('movies.csv', encoding = 'utf-8') as csv_file:
+    with open('../movies.csv', encoding = 'utf-8') as csv_file:
         csv_reader = csv.reader(csv_file,delimiter = ',')
         next(csv_reader)#skip the header row
         similarIDs = []
